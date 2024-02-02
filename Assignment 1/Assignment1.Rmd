@@ -1,0 +1,64 @@
+---
+title: "FML Assignment 1"
+output: html_document
+date: "2024-01-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Importing the Datasets
+
+```{r}
+ds_salaries <- read.table("C:/Users/jackd/OneDrive/Desktop/R Projects/Fundamentals of Machine Learning/Datasets/ds_salaries.csv", header = TRUE, sep = ",")
+```
+
+## Descriptive Statistics
+
+Average salary for all data science job titles:
+
+```{r}
+mean(ds_salaries$salary_in_usd)
+```
+
+Number of unique job titles
+
+```{r}
+length(unique(ds_salaries$job_title))
+```
+
+## Transform
+
+Average salary for each job title:
+
+```{r}
+average_salary <- aggregate(ds_salaries$salary_in_usd ~ ds_salaries$job_title, FUN = mean, data = ds_salaries)
+
+print(average_salary)
+```
+
+Highest paid job title on average
+
+```{r}
+average_salary[which.max(average_salary$`ds_salaries$salary_in_usd`),]
+```
+
+Looks like I need to become a Data Analytics Lead
+
+## Plot
+
+Lets make a Pie chart to see the frequency of each experience level
+
+```{r}
+experience_freq <- table(ds_salaries$experience_level)
+pie(experience_freq, main = "Frequency of Experience Levels")
+```
+
+The only two variables which I can create a scatterplot from are the salary_in_usd and salary variable. So even though it would not make sense to visualize these I will demonstrate a scatterplot.
+
+```{r}
+options(scipen = 999)
+data_analysts <- ds_salaries[ds_salaries$job_title == "Data Analyst", ]
+plot(data_analysts$salary, data_analysts$salary_in_usd)
+```
