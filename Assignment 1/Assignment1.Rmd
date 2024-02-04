@@ -1,0 +1,68 @@
+---
+title: "FML Assignment 1"
+output: html_document
+date: "2024-01-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Importing the Datasets
+
+```{r}
+ds_salaries <- read.table("C:/Users/jackd/OneDrive/Desktop/R Projects/Fundamentals of Machine Learning/Datasets/ds_salaries.csv", header = TRUE, sep = ",")
+```
+
+## Descriptive Statistics
+
+Average salary for all data science job titles:
+
+```{r}
+mean(ds_salaries$salary_in_usd)
+```
+
+Percentage of job titles.
+
+```{r}
+job_title_count <- table(ds_salaries$job_title) # calculate frequency of job titles
+job_title_percentage <- prop.table(job_title_count) * 100 # calculate the proportion each job title makes of the whole and multiplies by 100 to find the percent
+df_job_title_percentage <- data.frame(percentage = job_title_percentage) # converts back to a data.frame 
+df_job_title_percentage <- df_job_title_percentage[order(-df_job_title_percentage$percentage.Freq), ] # orders the data.frame from large to small
+print(df_job_title_percentage)
+```
+
+## Transform
+
+Average salary for each job title:
+
+```{r}
+average_salary <- aggregate(ds_salaries$salary_in_usd ~ ds_salaries$job_title, FUN = mean, data = ds_salaries) # transforms and finds the mean of salaries grouped by job titles
+
+print(average_salary)
+```
+
+Highest paid job title on average
+
+```{r}
+average_salary[which.max(average_salary$`ds_salaries$salary_in_usd`),] # finds the row where the maximum value resides and then selects said row
+```
+
+Looks like I need to become a Data Analytics Lead
+
+## Plot
+
+Lets make a Pie chart to see the frequency of each experience level
+
+```{r}
+experience_freq <- table(ds_salaries$experience_level) # calculates frequency of each experience level 
+pie(experience_freq, main = "Frequency of Experience Levels") 
+```
+
+The only two variables which I can create a scatter plot from are the salary_in_usd and salary variable. So, even though it would not make sense to visualize these I will demonstrate how a scatter plot could be created to analyze the "Data Analyst" job title.
+
+```{r}
+options(scipen = 999) # disables scientific notation from the axis scales for readability 
+data_analysts <- ds_salaries[ds_salaries$job_title == "Data Analyst", ] # filters ds_salaries by the job title "Data Analyst"
+plot(data_analysts$salary, data_analysts$salary_in_usd) # plots salary by salary in usd
+```
