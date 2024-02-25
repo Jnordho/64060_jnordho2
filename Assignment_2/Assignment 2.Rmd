@@ -1,0 +1,214 @@
+---
+title: "Assignment 2-FML"
+output: html_document
+date: "2024-02-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1 k-NN using k=1
+
+Loading the libraries and dataset
+
+```{r}
+library(class)
+library(caret)
+library(ISLR)
+
+set.seed(123)
+
+
+customer <- data.frame(Age = 40,
+                       Experience = 10,
+                       Income = 84,
+                       Family = 2,
+                       CCAvg = 2,
+                       Education.1 = 0,
+                       Education.2 = 1,
+                       Education.3 = 0,
+                       Mortgage = 0,
+                       Personal.Loan = NA,
+                       Securities.Account = 0,
+                       CD.Account = 0,
+                       Online = 1,
+                       CreditCard = 1)
+
+Bank <- read.csv("C:/Users/jackd/OneDrive/R Directory/UniversalBank.csv")
+Bank$Education <- as.factor(Bank$Education)
+#Bank$Personal.Loan <- as.factor(Bank$Personal.Loan)
+dummy_model <- dummyVars(~Education, data=Bank)
+dummy_data <- predict(dummy_model,Bank)
+Bank_dummy <- cbind(Bank, dummy_data)
+Bank_dummy <- subset(Bank_dummy, select = -c(Education,ID,ZIP.Code))
+str(Bank_dummy)
+```
+
+Normalizing the data using the min-max
+
+```{r}
+norm_model <- preProcess(Bank_dummy, method = c('range'))
+Bank_normalized <- predict(norm_model,Bank_dummy)
+Customer_normalized <- subset(predict(norm_model, customer), select = -c(Personal.Loan))
+```
+
+Partitioning the data into 60%  for training and 40% for validation
+
+```{r}
+set.seed(123)
+
+Index_Train <- createDataPartition(Bank_normalized$Personal.Loan, p=0.6, list=F)
+Train <- Bank_normalized[Index_Train,]
+Validation <- Bank_normalized[-Index_Train,]
+```
+
+Running the k-NN model
+
+```{r}
+Train_Predictors <- Train[,-7]
+Val_Predictors <- Validation[,-7]
+
+Train_Labels <- Train[,7]
+Val_Labels <- Validation[,7]
+
+Val_Labels <- factor(Val_Labels, levels = c("0", "1"))
+```
+
+```{r}
+set.seed(123)
+
+Predicted_Customer_label <- knn(Train_Predictors,
+                            Customer_normalized,
+                            cl = Train_Labels,
+                            k=1,
+                            prob = T)
+
+head(Predicted_Customer_label)
+```
+
+The customer data is predicted to be classified as a 1
+
+## 2 Optimal K
+
+I'm going to create a loop to run a knn and then a confusion matrix and then extract the kappa for k = 1:10.
+
+```{r}
+
+set.seed(123)
+
+# Initialize an empty data frame to store k values and kappas
+k_kappa_table <- data.frame()
+
+for(k in  1:10) {
+  # Run the knn function with the current value of k
+  Predicted_val_labels <- knn(Train_Predictors, Val_Predictors, cl = Train_Labels, k = k)
+   
+  # Calculate the confusion matrix
+  confusion_matrix <- confusionMatrix(Predicted_val_labels, Val_Labels)
+   
+  # Extract the kappa from the confusion matrix
+  kappa <- confusion_matrix$overall['Kappa']
+   
+  # Add the k value and its corresponding kappa to the table
+  k_kappa_table <- rbind(k_kappa_table, data.frame(k = k, kappa = kappa))
+}
+
+# Print the k-kappa table
+print(k_kappa_table)
+
+```
+
+k=1 has the largest Kappa when tested with the validation set. Kappa should be used instead of accuracy because the data is imbalanced, and kappa considers the chance of correct results.
+
+## 3 Confusion Matrix 
+
+A confusion matrix can help us assess the accuracy of the model's output. The confusionMatrix() function also shows us the accuracy from random and the kappa
+
+``` {r}
+Predicted_val_labels <- knn(Train_Predictors, Val_Predictors, cl = Train_Labels, k = 1)
+
+confusionMatrix(Predicted_val_labels, Val_Labels)
+```
+
+.96 > .899: The model performs better than random.
+
+## 4. 
+
+Since we already ran the model using k=1, and k=1 is the best k, it will be the exact same process
+
+```{r}
+set.seed(123)
+
+Predicted_Customer_label <- knn(Train_Predictors,
+                            Customer_normalized,
+                            cl = Train_Labels,
+                            k=1,
+                            prob = T)
+
+head(Predicted_Customer_label)
+```
+
+The customer is classified as 1
+
+## 5. k-NN: Training vs Validation 
+
+First I'll divide the data into training, validation, and test sets 
+
+```{r}
+set.seed(123)
+
+Train_Index <- createDataPartition(Bank_normalized$Personal.Loan, p=0.50, list=F)
+
+Train_Data <- Bank_normalized[Train_Index,]
+
+Val_Test_Index <- Bank_normalized[-Train_Index,]
+
+Val_Index <- createDataPartition(Val_Test_Index$Personal.Loan, p=0.6, list=F)
+
+Val_Data <- Val_Test_Index[Val_Index,]
+
+Test_Data <- Val_Test_Index[-Val_Index,]
+```
+
+```{r}
+Train_Data_Predictors <- Train_Data[,-7]
+Val_Data_Predictors <- Val_Data[,-7]
+Test_Data_Predictors <- Test_Data[,-7]
+
+Train_Data_Labels <- as.factor(Train_Data[,7])
+Val_Data_Labels <- as.factor(Val_Data[,7])
+Test_Data_Labels <- as.factor(Test_Data[,7])
+
+```
+
+Running knn with the training, validation, and test data
+
+``` {r}
+Predicted_train_labels <- knn(Train_Data_Predictors,
+                            Train_Data_Predictors,
+                            cl = Train_Data_Labels,
+                            k=1,
+                            prob = T)
+
+Predicted_val_labels <- knn(Train_Data_Predictors,
+                            Val_Data_Predictors,
+                            cl = Train_Data_Labels,
+                            k=1,
+                            prob = T)
+Predicted_test_labels <- knn(Train_Data_Predictors,
+                            Test_Data_Predictors,
+                            cl = Train_Data_Labels,
+                            k=1,
+                            prob = T)
+```
+
+``` {r}
+confusionMatrix(Predicted_train_labels, Train_Data_Labels)
+confusionMatrix(Predicted_val_labels, Val_Data_Labels)
+confusionMatrix(Predicted_test_labels, Test_Data_Labels)
+```
+
+The training data performed with an accuracy of 1 and a kappa of 1. This is because with k=1, the model was perfectly trained to itself.
+
+The validation and testing data performed worse with an accuracy and kappa of .957 and .725, and .96 and .772 respectively. This is expected since this data is new and the model was not trained on it. Even still since we chose the most optimal k value, the model performs well on both, outperforming the no information rate. 
