@@ -1,0 +1,98 @@
+---
+title: "Assignment_3_FML"
+output: html_document
+date: "2024-03-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## loading packages and dataset
+```{r}
+library(dplyr)
+library(caret)
+library(e1071)
+library(reshape2)
+
+bank <- read.csv("C:/Users/jackd/OneDrive/R Directory/UniversalBank.csv")
+bank$Personal.Loan <- factor(bank$Personal.Loan) # setting as factor because it contains binary values
+bank$CreditCard <- factor(bank$CreditCard)
+bank$Online <- factor(bank$Online)
+```
+
+## Partitioning the data
+```{r}
+set.seed(123)
+
+train_index <- createDataPartition(bank$Personal.Loan, p = 0.6, list = FALSE)
+
+train <- bank[train_index,]
+validation <- bank[-train_index,]
+```
+
+## A. creating a pivot table for the training data
+```{r}
+melted_train <- melt(train, id = c("Online", "CreditCard", "Personal.Loan"), measure.vars = "ID") # creates a dataframe containing Online, CC, and Loan
+
+pivot_train <- dcast(melted_train, Online + CreditCard ~ Personal.Loan, value.var = "value", fun.aggregate = length) # creates a pivot table that counts the number of 0s and 1s in the Loan column for every combination of Online and CC
+
+pivot_train
+```
+
+## b. 
+There are 51 individuals who own a Credit Card, use the online banking system, and took a personal loan. There are 518 individuals in total who own a Credit Card and use the online banking system. This mean that the probablity of an individual who owns a credit card and has used the online banking system to take a personal loan is 51/518 = 0.098.
+
+## c. Creating Online vs Loan and Credit Card vs Loan pivot tables
+```{r}
+melted_train3 <- melt(train, id = c("Online", "Personal.Loan"), measure.vars = "ID") # creates a dataframe with Online and Loan
+
+pivot_online_Loan <- dcast(melted_train3, Online ~ Personal.Loan, value.var = "value", fun.aggregate = length) # creates a pivot table that counts the 0s and 1s in Loan for each value of Online
+colnames(pivot_online_Loan)[2:3] <- c("Loans.0", "Loans.1") # changes the Loan columns names for easier interpretability
+
+pivot_online_Loan
+```
+```{r}
+melted_train2 <- melt(train, id = c("CreditCard", "Personal.Loan"), measure.vars = "ID") # creates a dataframe of CC and Loan
+
+pivot_cc_loan <- dcast(melted_train2, CreditCard ~ Personal.Loan, value.var = "value", fun.aggregate = length) # creates a pivot table that counts the 0s and 1s of Loans for each value of CC
+colnames(pivot_cc_loan)[2:3] <- c("Loans.0", "Loans.1") # changes column names for interpretability 
+
+pivot_cc_loan
+```
+
+## d. calculating probabilities 
+```{r}
+i <- pivot_cc_loan[2, 3] / sum(pivot_cc_loan[1:2, 3]) # computes prob of P(CC = 1 | Loan = 1)
+
+ii <- pivot_online_Loan[2, 3] / sum(pivot_online_Loan[1:2, 3]) # computes prob of P(Online = 1 | Loan = 1)
+
+iii <- sum(pivot_online_Loan[1:2, 3]) / sum(pivot_online_Loan[1:2, 2:3]) # computes prob of P(Loan = 1)
+
+iv <- pivot_cc_loan[2, 2] / sum(pivot_cc_loan[1:2, 2]) # computes prob of P(CC = 1 | Loan = 0)
+
+v <- pivot_online_Loan[2, 2] / sum(pivot_online_Loan[1:2, 2]) # computes prob of P(Online = 1 | Loan = 0)
+
+vi <- sum(pivot_online_Loan[1:2, 2]) / sum(pivot_online_Loan[1:2, 2:3]) # computes prob of P(Loan = 0)
+```
+
+## e. calculating naive bayes probabilities (Loan = 1 | CC = 1, Online = 1)
+```{r}
+nb_prob <- (i * ii * iii) / ((i * ii * iii) + (iv * v * vi)) # computes prob of (Loan = 1 | CC = 1, Online = 1)
+nb_prob
+```
+
+## f. 
+The probability that was computed in e does not match the probability in part b which is the exact probability. Exact probability is a more accurate probability.
+
+## g. naiveBayes
+```{r}
+set.seed(123)
+nb <- naiveBayes(Personal.Loan~Online+CreditCard, data = train) # creates a naiveBayes model for Loan against Online and CC
+nb
+```
+Using the outputted probabilities to find (Loan = 1 | CC = 1, Online = 1) would look like this:
+```{r}
+(.292 * .611 * .096) / ((.291 * .611 * .096) + (.287 * .594 * .904)) # calculating the prob using the outputs of nb
+```
+As you can see this outputs exactly the same (any different is rounding error) as in part e but different from the output calculated in part b. 
