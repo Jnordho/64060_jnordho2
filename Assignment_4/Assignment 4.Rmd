@@ -1,0 +1,119 @@
+---
+title: "FML-Assignment 4"
+output: html_document
+date: "2024-03-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading libararies and data
+```{r}
+library(tidyverse)
+library(factoextra)
+library(flexclust)
+library(reshape2)
+library(cowplot)
+
+set.seed(123)
+
+data <- read.csv("C:/Users/John/Documents/Pharmaceuticals.csv")
+row.names(data) <- data[,2]
+
+df <- data[, 3:11] # grabbing only the numeric variables
+head(df)
+```
+
+## Use only the numerical variables (1 to 9) to cluster the 21 firms. Justify the various choices made in conducting the cluster analysis, such as weights for different variables, the specific clustering algorithm(s)
+used, the number of clusters formed, and so on.
+
+Normalizing numerical variables
+```{r}
+df <- scale(df)
+summary(df)
+```
+
+Elbow and silhouette method
+```{r}
+wss <- fviz_nbclust(df, kmeans, method = "wss")
+sil <- fviz_nbclust(df, kmeans, method = "silhouette")
+
+plot_grid(wss, sil)
+```
+
+Both the elbow method and the sillouette method seem to agree with 5 clusters.
+
+```{r}
+distance <- get_dist(df)
+fviz_dist(distance)
+```
+
+Running k-mean
+```{r}
+set.seed(123)
+
+k5 <- kmeans(df, 5, nstart = 25)
+
+```
+
+```{r}
+fviz_cluster(k5, df)
+```
+
+A visual representation of the clusters. 
+
+## b. Interpret the clusters with respect to the numerical variables used in forming the clusters.
+```{r}
+centers <- k5$centers
+centers <- as.data.frame(centers)
+centers$cluster <- 1:nrow(centers)
+centers_long <- melt(centers, id.vars = "cluster")
+
+ggplot(centers_long, aes(x = variable, y = value, color = factor(cluster))) + # using a factor for color makes sure the legend is not a gradient
+  geom_line(aes(group = as.factor(cluster))) + geom_point() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # rotates the x values for readability 
+```
+
+With this visualization we can see the characteristic of each variable that make up each cluster. 
+
+```{r}
+k5$size
+```
+Here you can see the number of firms in each cluster
+
+## c. Is there a pattern in the clusters with respect to the numerical variables (10 to 12)?
+```{r}
+data_cluster <- data %>%
+  mutate(cluster = k5$cluster) # adds a "cluster" column to label what cluster each company is within. 
+```
+
+```{r}
+ggplot(data_cluster, mapping = aes(factor(cluster), fill=Median_Recommendation)) + 
+  geom_bar(position = 'dodge') +
+  ggtitle("Median Recommendation Frequency by Clusters")
+ggplot(data_cluster, mapping = aes(factor(cluster), fill=Location)) +
+  geom_bar(position = 'dodge') +
+  ggtitle("Location Frequency by Clusters")
+ggplot(data_cluster, mapping = aes(factor(cluster), fill=Exchange)) +
+  geom_bar(position = 'dodge') +
+  ggtitle("Stock Exchange Frequency by Clusters")
+```
+
+With these three visuals, we can see the frequencies of columns 12:14. These can help us visualize the clear skew towards US locations and dominance of NYSE. 
+
+## d. Provide an appropriate name for each cluster using any or all of the variables in the dataset
+
+Cluster 1: This cluster could be called "Growing Pharmaceutical Companies" This is because they have a relatively high count of "moderate sell" and "hold", which tell us that the stock high but still likely growing. 
+
+Cluster 2: This cluster could be called "Small Pharmaceutical Companies." These companies are made up of "Hold", "Moderate Buy" and high leverage, indicating that the stock is not overvalued and is somewhat likely to grow. 
+
+Cluster 3: This cluster could be called "High-Risk Companies." The companies within this cluster have high leverage, beta and low ROA, ROE, Net Profit Margin, and Market Cap.
+
+Cluster 4: This cluster could be called "Overvalued Companies." These companies have extremely high PE-ratio with extremely low net profit margin.
+
+Cluster 5: This cluster could be called "High Revenue Growth." These companies have a surprising combination of low asset turnover and high rev growth, which seems at odds with eachother. This could be why the recommendations are a split between moderate buy and moderate sell.
+
+## Conclusion
+
+If I were to run this again and I was not trying show the use of the silhouette method and the elbow method, I would have selected 3 or 4 clusters. I think this makes the clusters much easier to interpret and doesnt leave us with extremely small clusters like we see here with cluster 3. 
