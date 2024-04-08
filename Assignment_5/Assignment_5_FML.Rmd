@@ -1,0 +1,136 @@
+---
+title: "Assignment_5"
+output: html_document
+date: "2024-04-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Library and data
+```{r}
+set.seed(123)
+library(stats)
+library(cluster)
+library(dplyr)
+library(caret)
+library(NbClust)
+library(factoextra)
+library(tibble)
+
+
+df_1 <- read.csv("C:/Users/John/Documents/Cereals.csv")
+df_1 <- na.omit(df_1) 
+rownames(df_1) <- df_1$name
+df_1 <- df_1[, -c(1:3)]
+head(df_1)
+```
+
+## Normalization
+```{r}
+df <- scale(df_1)
+head(df)
+```
+
+## Apply hierarchical clustering to the data using Euclidean distance to the normalized
+measurements. Use Agnes to compare the clustering from single linkage, complete
+linkage, average linkage, and Ward. Choose the best method.
+```{r}
+hc_single <- agnes(df, method = "single")
+hc_complete <- agnes(df, method = "complete")
+hc_average <- agnes(df, method = "average")
+hc_ward <- agnes(df, method = "ward")
+
+print(hc_single$ac) # single
+print(hc_complete$ac)
+print(hc_average$ac)
+print(hc_ward$ac)
+```
+Ward is the optimal method because it has the largest agglomerative coefficient.
+
+## How many clusters would you choose?
+```{r}
+fviz_nbclust(df, FUNcluster = hcut, method = "wss", k.max = 15)
+```
+
+There is no obvious elbow but k=5 seems to offer the best clusters. 
+
+```{r}
+d <- dist(df_1, method = "euclidean")
+hc_ward <- hclust(d, method = "ward.D2")
+
+plot(hc_ward, cex = 0.6)
+rect.hclust(hc_ward, k = 5, border = 1:6)
+```
+
+## Comment on the structure of the clusters and on their stability. Hint: To check stability,
+partition the data and see how well clusters formed based on one part apply to the other
+part. 
+```{r}
+set.seed(123)
+partitions <- createDataPartition(df[,"calories"], p=0.5, list=FALSE)
+
+A <- df[partitions, ]
+B <- df[-partitions, ]
+
+nrow(A)
+nrow(B)
+```
+We created two equal partitions 
+
+```{r}
+hc_ward_A <- agnes(A, method = "ward")
+hc_ward_B <- agnes(B, method = "ward")
+
+hc_ward_A$ac
+hc_ward_B$ac
+
+sum(kmeans(A, centers = 2)$withinss)
+sum(kmeans(B, centers = 2)$withinss)
+```
+The two partitions have very similar agglomerative coefficients of .83 and .84. Additionally they have very similar WCSS.
+
+##The elementary public schools would like to choose a set of cereals to include in their
+daily cafeterias. Every day a different cereal is offered, but all cereals should support a
+healthy diet. For this goal, you are requested to find a cluster of “healthy cereals.”
+Should the data be normalized? If not, how should they be used in the cluster analysis?
+
+The data shouldn't be normalized because each of the nutrition facts need to be interpretable to make decisions regarding healthiness. For example, sodium is vital for humans but too much can have negative health effects. 
+```{r}
+cut_hc_ward <- cutree(hc_ward, k = 5)
+
+
+Clust_1 <- df_1 %>%
+  filter(cut_hc_ward == 1) %>%
+  summarize_all(median)
+
+Clust_2 <- df_1 %>%
+  filter(cut_hc_ward == 2) %>%
+  summarize_all(median)
+
+Clust_3 <- df_1 %>%
+  filter(cut_hc_ward == 3) %>%
+  summarize_all(median)
+
+Clust_4 <- df_1 %>%
+  filter(cut_hc_ward == 4) %>%
+  summarize_all(median)
+
+Clust_5 <- df_1 %>%
+  filter(cut_hc_ward == 5) %>%
+  summarize_all(median)
+
+
+combined_clust <- bind_rows(Clust_1 %>% mutate(cluster = 1),
+                              Clust_2 %>% mutate(cluster = 2),
+                              Clust_3 %>% mutate(cluster = 3),
+                              Clust_4 %>% mutate(cluster = 4),
+                              Clust_5 %>% mutate(cluster = 5)) %>%
+                              rownames_to_column(var = "cluster_name") 
+
+combined_clust
+
+```
+
+Here we found the median of each variable for each cluster. This will allow use to compare each cluster. Cluster 1 ranks high on average in protein, fiber, potassium, vitamins, shelf stability, and maintains a respectable rating. I believe this makes the cereals in cluster 1 a great choice for the school. 
